@@ -1,18 +1,28 @@
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
+//  Variables
+int PulseSensorPurplePin = 2;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0
+int LED13 = 13;   //  The on-board Arduion LED
+
+
+int Signal;                // holds the incoming raw data. Signal value can range from 0-1024
+int Threshold = 550;            // Determine which Signal to "count as a beat", and which to ingore. 
+
+
+
 
 void setup() {
   // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  pinMode(LED13, OUTPUT);
+  Serial.begin(9600);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+
+  Signal = analogRead(PulseSensorPurplePin);
+  Serial.println(Signal);
+
+  delay(10);
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
-}
