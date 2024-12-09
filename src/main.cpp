@@ -8,6 +8,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include <HTTPClient.h>
+#include <ArduinoJson.h>
 
 //  Variables
 int PulseSensorPurplePin = 32; // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0         
@@ -21,6 +22,7 @@ const String deviceName = "g64esp32";                                           
 const String sasToken = "SharedAccessSignature sr=147HubG64.azure-devices.net%2Fdevices%2Fg64esp32&sig=lCztsoDm1DSgUlDBpZ3dlgmd0R5%2FCUPgfEKpUAVWV84%3D&se=1732513917";
 
 const String url = "https://" + iothubName + ".azure-devices.net/devices/" + deviceName + "/messages/events?api-version=2016-11-14";
+const String serverUrl = "http://localhost:5000/pulse-data";
 
 char ssid[32]; // your network SSID (name)
 char pass[32]; // your network password (use for WPA, or use
@@ -103,6 +105,7 @@ void nvs_access()
   // Close
   nvs_close(my_handle);
 }
+
 void setup()
 {
   Serial.begin(9600);
@@ -139,17 +142,37 @@ void loop()
 
   Signal = analogRead(PulseSensorPurplePin);
   Serial.println(Signal);
+
+  String payload = createJsonPayload(Signal);
   // HTTP CLIENT 
 
-  http.begin(url, root_ca); //Specify the URL and certificate
-  http.addHeader("Authorization", sasToken);
+  http.begin(serverUrl); //Specify the URL and certificate
+  // http.addHeader("Authorization", sasToken);
   http.addHeader("Content-Type", "application/json");
 
 
-  const String message = "Pulse" + String(Signal);
-  int httpCode = http.POST(message);
+  // const String message = "Pulse" + String(Signal);
+  int httpCode = http.POST(payload);
   Serial.println(httpCode);
 
 
   delay(2000);
+}
+
+String createJsonPayload(int signal) {
+  // Create a JSON document
+  StaticJsonDocument<200> doc;
+
+  // Add the pulse signal and timestamp to the document
+  doc["signal"] = signal;  // Add the pulse signal value
+  doc["timestamp"] = millis();  // Add a timestamp (optional)
+
+  // Create a string to hold the JSON payload
+  String jsonString;
+  
+  // Serialize the JSON document to a string
+  serializeJson(doc, jsonString);
+  
+  // Return the JSON string
+  return jsonString;
 }
