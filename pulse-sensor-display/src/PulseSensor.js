@@ -61,7 +61,7 @@ const PulseDataComponent = () => {
     };
 
     fetchPulseData();
-    const interval = setInterval(fetchPulseData, 2000);
+    const interval = setInterval(fetchPulseData, 200);
     return () => clearInterval(interval);
   }, []);
 

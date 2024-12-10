@@ -10,52 +10,38 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-//  Variables
-int PulseSensorPurplePin = 32; // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0         
+String createJsonPayload(int signal)
+{
+  // Create a JSON document
+  DynamicJsonDocument doc(200);
 
-int Signal;          // holds the incoming raw data. Signal value can range from 0-1024
+  // Add the pulse signal and timestamp to the document
+  doc["signal"] = signal;
+  doc["timestamp"] = millis(); // Add a timestamp (optional)
+
+  // Create a string to hold the JSON payload
+  String jsonString;
+
+  // Serialize the JSON document to a string
+  serializeJson(doc, jsonString);
+
+  // Return the JSON string
+  return jsonString;
+}
+
+//  Variables
+int PulseSensorPurplePin = 32; // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0
+int Signal;
 int Threshold = 550; // Determine which Signal to "count as a beat", and which to ingore.
 
 HTTPClient http;
-const String iothubName = "147HubG64";                                                                                                                                // IoT Hub Name
-const String deviceName = "g64esp32";                                                                                                                                 // Device name
-const String sasToken = "SharedAccessSignature sr=147HubG64.azure-devices.net%2Fdevices%2Fg64esp32&sig=lCztsoDm1DSgUlDBpZ3dlgmd0R5%2FCUPgfEKpUAVWV84%3D&se=1732513917";
-
-const String url = "https://" + iothubName + ".azure-devices.net/devices/" + deviceName + "/messages/events?api-version=2016-11-14";
-const String serverUrl = "http://localhost:5000/pulse-data";
+const String serverUrl = "http://192.168.231.210:5000/pulse-data";
 
 char ssid[32]; // your network SSID (name)
 char pass[32]; // your network password (use for WPA, or use
-
-const char* root_ca = \
-"-----BEGIN CERTIFICATE-----\n" \
-"MIIEtjCCA56gAwIBAgIQCv1eRG9c89YADp5Gwibf9jANBgkqhkiG9w0BAQsFADBh\n" \
-"MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n" \
-"d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBH\n" \
-"MjAeFw0yMjA0MjgwMDAwMDBaFw0zMjA0MjcyMzU5NTlaMEcxCzAJBgNVBAYTAlVT\n" \
-"MR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xGDAWBgNVBAMTD01TRlQg\n" \
-"UlMyNTYgQ0EtMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMiJV34o\n" \
-"eVNHI0mZGh1Rj9mdde3zSY7IhQNqAmRaTzOeRye8QsfhYFXSiMW25JddlcqaqGJ9\n" \
-"GEMcJPWBIBIEdNVYl1bB5KQOl+3m68p59Pu7npC74lJRY8F+p8PLKZAJjSkDD9Ex\n" \
-"mjHBlPcRrasgflPom3D0XB++nB1y+WLn+cB7DWLoj6qZSUDyWwnEDkkjfKee6ybx\n" \
-"SAXq7oORPe9o2BKfgi7dTKlOd7eKhotw96yIgMx7yigE3Q3ARS8m+BOFZ/mx150g\n" \
-"dKFfMcDNvSkCpxjVWnk//icrrmmEsn2xJbEuDCvtoSNvGIuCXxqhTM352HGfO2JK\n" \
-"AF/Kjf5OrPn2QpECAwEAAaOCAYIwggF+MBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYD\n" \
-"VR0OBBYEFAyBfpQ5X8d3on8XFnk46DWWjn+UMB8GA1UdIwQYMBaAFE4iVCAYlebj\n" \
-"buYP+vq5Eu0GF485MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEFBQcD\n" \
-"AQYIKwYBBQUHAwIwdgYIKwYBBQUHAQEEajBoMCQGCCsGAQUFBzABhhhodHRwOi8v\n" \
-"b2NzcC5kaWdpY2VydC5jb20wQAYIKwYBBQUHMAKGNGh0dHA6Ly9jYWNlcnRzLmRp\n" \
-"Z2ljZXJ0LmNvbS9EaWdpQ2VydEdsb2JhbFJvb3RHMi5jcnQwQgYDVR0fBDswOTA3\n" \
-"oDWgM4YxaHR0cDovL2NybDMuZGlnaWNlcnQuY29tL0RpZ2lDZXJ0R2xvYmFsUm9v\n" \
-"dEcyLmNybDA9BgNVHSAENjA0MAsGCWCGSAGG/WwCATAHBgVngQwBATAIBgZngQwB\n" \
-"AgEwCAYGZ4EMAQICMAgGBmeBDAECAzANBgkqhkiG9w0BAQsFAAOCAQEAdYWmf+AB\n" \
-"klEQShTbhGPQmH1c9BfnEgUFMJsNpzo9dvRj1Uek+L9WfI3kBQn97oUtf25BQsfc\n" \
-"kIIvTlE3WhA2Cg2yWLTVjH0Ny03dGsqoFYIypnuAwhOWUPHAu++vaUMcPUTUpQCb\n" \
-"eC1h4YW4CCSTYN37D2Q555wxnni0elPj9O0pymWS8gZnsfoKjvoYi/qDPZw1/TSR\n" \
-"penOgI6XjmlmPLBrk4LIw7P7PPg4uXUpCzzeybvARG/NIIkFv1eRYIbDF+bIkZbJ\n" \
-"QFdB9BjjlA4ukAg2YkOyCiB8eXTBi2APaceh3+uBLIgLk8ysy52g2U3gP7Q26Jlg\n" \
-"q/xKzj3O9hFh/g==\n" \
-"-----END CERTIFICATE-----\n";
+int pulses[20] = {};
+unsigned long previousMillis = 0;
+const long interval = 2000;
 
 void nvs_access()
 {
@@ -133,46 +119,49 @@ void setup()
   Serial.println("MAC address: ");
   Serial.println(WiFi.macAddress());
 
-  Serial.println(url);
+  Serial.println(serverUrl);
 }
 
+int i = 0;
 void loop()
 {
-  // put your main code here, to run repeatedly:
+  // unsigned long currentMillis = millis();
 
+  // Check if it's time to send the POST request
+  // if (currentMillis - previousMillis >= interval) {
+  //   // Save the last time a POST request was sent
+  //   previousMillis = currentMillis;
+
+  //   // Send the pulse data
+  //   if (i == 20) {
+  //     // Print out pulse data for debugging
+  //     for (int j = 0; j < 20; j++) {
+  //       Serial.print(pulses[j]);
+  //       Serial.print(" ");
+  //     }
   Signal = analogRead(PulseSensorPurplePin);
-  Serial.println(Signal);
-
   String payload = createJsonPayload(Signal);
-  // HTTP CLIENT 
 
-  http.begin(serverUrl); //Specify the URL and certificate
-  // http.addHeader("Authorization", sasToken);
+  // HTTP CLIENT
+  http.begin(serverUrl); // Specify the URL
   http.addHeader("Content-Type", "application/json");
 
-
-  // const String message = "Pulse" + String(Signal);
-  int httpCode = http.POST(payload);
+  int httpCode = http.POST(payload); // Send the POST request
   Serial.println(httpCode);
 
+  // Reset array and index after sending the POST request
+  //   for (int j = 0; j < 20; j++) {
+  //     pulses[j] = 0;
+  //   }
+  //   i = 0;
+  // }
+  // }
 
-  delay(2000);
-}
-
-String createJsonPayload(int signal) {
-  // Create a JSON document
-  StaticJsonDocument<200> doc;
-
-  // Add the pulse signal and timestamp to the document
-  doc["signal"] = signal;  // Add the pulse signal value
-  doc["timestamp"] = millis();  // Add a timestamp (optional)
-
-  // Create a string to hold the JSON payload
-  String jsonString;
-  
-  // Serialize the JSON document to a string
-  serializeJson(doc, jsonString);
-  
-  // Return the JSON string
-  return jsonString;
+  // // Collect pulse data every 100ms (for example)
+  // if (i < 20) {
+  //   int signal = analogRead(PulseSensorPurplePin);
+  //   pulses[i] = signal;
+  //   i++;
+  // }
+  delay(500);
 }

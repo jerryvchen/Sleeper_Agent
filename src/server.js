@@ -15,7 +15,7 @@ app.post('/pulse-data', (req, res) => {
   const pulseData = req.body;  // Get the pulse data from the request body
   console.log("Received pulse data:", pulseData);  // Log the data to the console
 
-  pulseDataArray.push(pulseData)
+  pulseDataArray.push(pulseData) //
   console.log(pulseDataArray)
 
   // Send a response back to the ESP32
